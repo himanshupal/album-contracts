@@ -1,0 +1,15 @@
+{
+  "name": "marketplace-contracts",
+  "packageManager": "yarn@3.1.1",
+  "scripts": {
+    "compile": "yarn hardhat compile",
+    "flatten": "yarn hardhat flatten > flattened.sol",
+    "deploy": "yarn hardhat run scripts/deploy.js"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.1.1",
+    "@openzeppelin/contracts": "^4.7.3",
+    "ethers": "^5.7.0",
+    "hardhat": "^2.11.1"
+  }
+}
