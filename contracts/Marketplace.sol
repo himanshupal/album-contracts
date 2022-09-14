@@ -3,11 +3,14 @@
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Marketplace is ERC721Enumerable, Ownable {
+    using EnumerableSet for EnumerableSet.UintSet;
+
     string private __baseURI;
-    mapping(address => uint256[]) private __userTokens;
+    mapping(address => EnumerableSet.UintSet) private __userTokens;
     mapping(uint256 => string) private __tokenHashForId;
     mapping(string => uint256) private __tokenIdForHash;
 
@@ -29,9 +32,8 @@ contract Marketplace is ERC721Enumerable, Ownable {
         address _to,
         uint256 _tokenId
     ) internal override {
-        address tokenOwner_ = ownerOf(_tokenId);
-        removeFromList(__userTokens[tokenOwner_], _tokenId);
-        __userTokens[_to].push(_tokenId);
+        __userTokens[ownerOf(_tokenId)].remove(_tokenId);
+        __userTokens[_to].add(_tokenId);
 
         super._transfer(_from, _to, _tokenId);
     }
@@ -63,7 +65,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
         __tokenIdForHash[_ipfsHash] = tokenId_;
         __tokenHashForId[tokenId_] = _ipfsHash;
 
-        __userTokens[_to].push(tokenId_);
+        __userTokens[_to].add(tokenId_);
 
         super._mint(_to, tokenId_);
     }
@@ -75,29 +77,16 @@ contract Marketplace is ERC721Enumerable, Ownable {
         delete __tokenHashForId[_tokenId];
 
         address tokenOwner_ = ownerOf(_tokenId);
-        removeFromList(__userTokens[tokenOwner_], _tokenId);
+        __userTokens[tokenOwner_].remove(_tokenId);
 
         super._burn(_tokenId);
     }
 
     function userTokens(address _user) external view returns (uint256[] memory) {
-        return __userTokens[_user];
+        return __userTokens[_user].values();
     }
 
-    function removeFromList(uint256[] storage list, uint256 element) internal {
-        uint256[] memory cachedList_ = list;
-        uint256 cachedListLength_ = cachedList_.length;
-        uint256 index_;
-
-        while (index_ < cachedListLength_) {
-            if (list[index_] == element) {
-                break;
-            } else {
-                index_++;
-            }
-        }
-
-        list[index_] = list[cachedListLength_ - 1];
-        list.pop();
+    function userTokensCount(address _user) external view returns (uint256) {
+        return __userTokens[_user].length();
     }
 }

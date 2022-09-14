@@ -64,7 +64,7 @@ describe("Marketplace", function () {
     // with approval
     expect(await contract.connect(bob).approve(alex.address, tokenId)).to.not.throw;
     await contract.transferFrom(bob.address, alex.address, tokenId);
-    expect((await contract.userTokens(alex.address)).length).to.eq(1);
-    expect((await contract.userTokens(bob.address)).length).to.eq(0);
+    expect((await contract.userTokensCount(alex.address)).eq(1)).to.be.true;
+    expect((await contract.userTokensCount(bob.address)).eq(0)).to.be.true;
   });
 });

@@ -22,12 +22,12 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>29/29</span>
+        <span class='fraction'>23/23</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">90% </span>
+        <span class="strong">87.5% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>9/10</span>
+        <span class='fraction'>7/8</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -37,7 +37,7 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>38/38</span>
+        <span class='fraction'>29/29</span>
       </div>
     </div>
   </div>
@@ -135,19 +135,9 @@
 90
 91
 92
-93
-94
-95
-96
-97
-98
-99
-100
-101
-102
-103
-104
-105</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+93</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -179,7 +169,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -231,24 +220,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4×</span>
 <span class="cline-any cline-yes">5×</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: Unlicense
@@ -260,8 +236,10 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 &nbsp;
 contract Marketplace is ERC721Enumerable, Ownable {
+    using EnumerableSet for EnumerableSet.UintSet;
+&nbsp;
     string private __baseURI;
-    mapping(address =&gt; uint256[]) private __userTokens;
+    mapping(address =&gt; EnumerableSet.UintSet) private __userTokens;
     mapping(uint256 =&gt; string) private __tokenHashForId;
     mapping(string =&gt; uint256) private __tokenIdForHash;
 &nbsp;
@@ -283,9 +261,8 @@ contract Marketplace is ERC721Enumerable, Ownable {
         address _to,
         uint256 _tokenId
     ) internal override {
-        address tokenOwner_ = ownerOf(_tokenId);
-        removeFromList(__userTokens[tokenOwner_], _tokenId);
-        __userTokens[_to].push(_tokenId);
+        __userTokens[ownerOf(_tokenId)].remove(_tokenId);
+        __userTokens[_to].add(_tokenId);
 &nbsp;
         super._transfer(_from, _to, _tokenId);
     }
@@ -317,7 +294,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
         __tokenIdForHash[_ipfsHash] = tokenId_;
         __tokenHashForId[tokenId_] = _ipfsHash;
 &nbsp;
-        __userTokens[_to].push(tokenId_);
+        __userTokens[_to].add(tokenId_);
 &nbsp;
         super._mint(_to, tokenId_);
     }
@@ -329,30 +306,17 @@ contract Marketplace is ERC721Enumerable, Ownable {
         delete __tokenHashForId[_tokenId];
 &nbsp;
         address tokenOwner_ = ownerOf(_tokenId);
-        removeFromList(__userTokens[tokenOwner_], _tokenId);
+        __userTokens[tokenOwner_].remove(_tokenId);
 &nbsp;
         super._burn(_tokenId);
     }
 &nbsp;
     function userTokens(address _user) external view returns (uint256[] memory) {
-        return __userTokens[_user];
+        return __userTokens[_user].values();
     }
 &nbsp;
-    function removeFromList(uint256[] storage list, uint256 element) internal {
-        uint256[] memory cachedList_ = list;
-        uint256 cachedListLength_ = cachedList_.length;
-        uint256 index_;
-&nbsp;
-        while (index_ &lt; cachedListLength_) {
-            if (list[index_] == element) {
-                break;
-            } else {
-                index_++;
-            }
-        }
-&nbsp;
-        list[index_] = list[cachedListLength_ - 1];
-        list.pop();
+    function userTokensCount(address _user) external view returns (uint256) {
+        return __userTokens[_user].length();
     }
 }
 &nbsp;</pre></td></tr>
@@ -361,7 +325,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Sep 14 2022 23:39:50 GMT+0530 (India Standard Time)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Sep 14 2022 23:55:11 GMT+0530 (India Standard Time)
 </div>
 </div>
 <script src="../prettify.js"></script>
