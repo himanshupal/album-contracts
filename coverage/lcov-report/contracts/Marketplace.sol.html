@@ -22,22 +22,22 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>29/29</span>
+        <span class='fraction'>24/24</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">90% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>9/10</span>
+        <span class='fraction'>4/4</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>11/11</span>
+        <span class='fraction'>8/8</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>38/38</span>
+        <span class='fraction'>31/31</span>
       </div>
     </div>
   </div>
@@ -124,29 +124,7 @@
 79
 80
 81
-82
-83
-84
-85
-86
-87
-88
-89
-90
-91
-92
-93
-94
-95
-96
-97
-98
-99
-100
-101
-102
-103
-104</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+82</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -158,18 +136,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15×</span>
-<span class="cline-any cline-yes">15×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,22 +146,12 @@
 <span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-yes">3×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-yes">1×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -257,23 +213,11 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 &nbsp;
 contract Marketplace is ERC721Enumerable, Ownable {
-    string private __baseURI;
     mapping(address =&gt; uint256[]) private __userTokens;
     mapping(uint256 =&gt; string) private __tokenHashForId;
     mapping(string =&gt; uint256) private __tokenIdForHash;
 &nbsp;
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        string memory baseURI_
-    ) ERC721(name_, symbol_) {
-        <span class="missing-if-branch" title="else path not taken" >E</span>require(bytes(baseURI_).length &gt;= 5, "Marketplace: invalid baseURI length");
-        __baseURI = baseURI_;
-    }
-&nbsp;
-    function _baseURI() internal view override returns (string memory) {
-        return __baseURI;
-    }
+    constructor(string memory name_, string memory symbol_) ERC721(name_, symbol_) {}
 &nbsp;
     function _transfer(
         address _from,
@@ -287,18 +231,8 @@ contract Marketplace is ERC721Enumerable, Ownable {
         super._transfer(_from, _to, _tokenId);
     }
 &nbsp;
-    function baseURI() external view returns (string memory) {
-        return _baseURI();
-    }
-&nbsp;
-    function setBaseURI(string memory baseURI_) external onlyOwner {
-        require(bytes(baseURI_).length &gt;= 5, "Marketplace: invalid baseURI length");
-        __baseURI = baseURI_;
-    }
-&nbsp;
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        _requireMinted(_tokenId);
-        return string(abi.encodePacked(_baseURI(), "/", __tokenHashForId[_tokenId]));
+        return __tokenHashForId[_tokenId];
     }
 &nbsp;
     function tokenId(string memory _tokenHash) public view returns (uint256) {
@@ -358,7 +292,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Sep 15 2022 00:19:27 GMT+0530 (India Standard Time)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Sep 15 2022 01:50:05 GMT+0530 (India Standard Time)
 </div>
 </div>
 <script src="../prettify.js"></script>

@@ -1,9 +1,9 @@
 const { ethers } = require("hardhat");
 
 const deploy = async function () {
-  const Marketplace = await ethers.getContractFactory("Marketplace");
-  const marketplace = await Marketplace.deploy("Marketplace", "MMKT", "https://ipfs.io/ipfs");
-  console.log(`Deployed to`, marketplace.address);
+  const MarketPlace = await ethers.getContractFactory("Marketplace");
+  const marketPlace = await MarketPlace.deploy("Marketplace", "MMKT");
+  console.log(`Deployed to`, marketPlace.address);
 };
 
 try {

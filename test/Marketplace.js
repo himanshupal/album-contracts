@@ -1,4 +1,4 @@
-const { ethers, tracer } = require("hardhat");
+const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
 describe("Marketplace", function () {
@@ -8,21 +8,12 @@ describe("Marketplace", function () {
   this.beforeEach(async function () {
     [alex, bob, carl] = await ethers.getSigners();
     const factory = await ethers.getContractFactory("Marketplace");
-    contract = await factory.deploy("Marketplace", "MMKT", "https://ipfs.io/ipfs");
+    contract = await factory.deploy("Marketplace", "MMKT");
   });
 
   it("reads", async function () {
     expect(await contract.name()).eq("Marketplace");
     expect(await contract.symbol()).eq("MMKT");
-    expect(await contract.baseURI()).eq("https://ipfs.io/ipfs");
-  });
-
-  it("updates baseURI", async function () {
-    expect(await contract.baseURI()).eq("https://ipfs.io/ipfs");
-    await expect(contract.connect(carl).setBaseURI("https://ipfs.io/ipns")).to.throw;
-    await expect(contract.setBaseURI("")).to.throw;
-    await contract.setBaseURI("https://ipfs.io/ipns");
-    expect(await contract.baseURI()).to.eq("https://ipfs.io/ipns");
   });
 
   it("mints", async function () {
@@ -30,7 +21,7 @@ describe("Marketplace", function () {
     expect(await contract.mint(bob.address, "1234153")).to.not.throw;
     expect((await contract.totalSupply()).eq(2)).to.be.true;
     expect((await contract.tokenId("123456")).eq(1)).to.be.true;
-    expect(await contract.tokenURI(1)).to.eq("https://ipfs.io/ipfs/123456");
+    expect(await contract.tokenURI(1)).to.eq("123456");
     expect(await contract.ownerOf(1)).to.eq(bob.address);
     const userTokens = await contract.userTokens(bob.address);
     userTokens.forEach((token, index) => expect(token.toNumber()).to.eq(index + 1));

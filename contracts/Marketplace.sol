@@ -6,23 +6,11 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Marketplace is ERC721Enumerable, Ownable {
-    string private __baseURI;
     mapping(address => uint256[]) private __userTokens;
     mapping(uint256 => string) private __tokenHashForId;
     mapping(string => uint256) private __tokenIdForHash;
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        string memory baseURI_
-    ) ERC721(name_, symbol_) {
-        require(bytes(baseURI_).length >= 5, "Marketplace: invalid baseURI length");
-        __baseURI = baseURI_;
-    }
-
-    function _baseURI() internal view override returns (string memory) {
-        return __baseURI;
-    }
+    constructor(string memory name_, string memory symbol_) ERC721(name_, symbol_) {}
 
     function _transfer(
         address _from,
@@ -36,18 +24,8 @@ contract Marketplace is ERC721Enumerable, Ownable {
         super._transfer(_from, _to, _tokenId);
     }
 
-    function baseURI() external view returns (string memory) {
-        return _baseURI();
-    }
-
-    function setBaseURI(string memory baseURI_) external onlyOwner {
-        require(bytes(baseURI_).length >= 5, "Marketplace: invalid baseURI length");
-        __baseURI = baseURI_;
-    }
-
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        _requireMinted(_tokenId);
-        return string(abi.encodePacked(_baseURI(), "/", __tokenHashForId[_tokenId]));
+        return __tokenHashForId[_tokenId];
     }
 
     function tokenId(string memory _tokenHash) public view returns (uint256) {
