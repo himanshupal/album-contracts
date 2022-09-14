@@ -2,6 +2,7 @@
   "name": "marketplace-contracts",
   "packageManager": "yarn@3.1.1",
   "scripts": {
+    "test": "yarn hardhat test",
     "compile": "yarn hardhat compile",
     "coverage": "yarn hardhat coverage",
     "flatten": "yarn hardhat flatten > flattened.sol",
@@ -11,13 +12,11 @@
     "@nomiclabs/hardhat-ethers": "^2.1.1",
     "@openzeppelin/contracts": "^4.7.3",
     "chai": "^4.3.6",
+    "dotenv": "^16.0.2",
     "ethers": "^5.7.0",
     "hardhat": "^2.11.1",
     "hardhat-gas-reporter": "^1.0.9",
     "hardhat-tracer": "^1.1.0-rc.9",
     "solidity-coverage": "^0.8.2"
-  },
-  "dependencies": {
-    "alchemy-sdk": "^2.0.4"
   }
 }
