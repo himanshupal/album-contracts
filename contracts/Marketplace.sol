@@ -6,11 +6,17 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Marketplace is ERC721Enumerable, Ownable {
+    /// @dev Sale fees basis points
+    uint256 private constant SALE_FEES_BPS = 1e6;
+
     /// @notice Keeps track of total number of token minted
     uint256 public tokensMinted;
 
-    /// @dev Tracks any excess tokens deposited by users
-    uint256 private excessTokens;
+    /// @notice Fee applicable on token sale, raised to 1e6
+    uint256 public saleFees;
+
+    /// @dev Current (fee deducted) unclaimed amount of tokens earned by users
+    uint256 private tokensLocked;
 
     /// @dev Used for overriding
     string private baseURI;
@@ -43,6 +49,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
     event StatusUpdate(uint256 indexed tokenId, bool status);
 
     /**
+     * @notice Sets default fees to 0.1% of token price
      * @param name contract name
      * @param symbol contract symbol
      * @param baseURI_ the base URI for all the tokens to follow, e.g. a web server path or some domain name
@@ -54,6 +61,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
     ) ERC721(name, symbol) {
         require(bytes(baseURI_).length != 0, "Marketplace: BaseURI_ is required");
         baseURI = baseURI_;
+        saleFees = 1e3;
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -91,14 +99,13 @@ contract Marketplace is ERC721Enumerable, Ownable {
         address newOwner = _msgSender();
 
         _transfer(tokenOwner, newOwner, tokenId);
-        userEarnings[tokenOwner] += price;
         isOpenForSale[tokenId] = false;
 
-        if (amountSent > price) {
-            excessTokens += amountSent - price;
-        }
-
         emit Purchase(tokenOwner, newOwner, tokenId, price);
+
+        uint256 userEarning = price - ((price * saleFees) / SALE_FEES_BPS);
+        userEarnings[tokenOwner] += userEarning;
+        tokensLocked += userEarning;
     }
 
     /**
@@ -109,6 +116,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
         uint256 amount = userEarnings[caller];
         require(amount > 0, "Marketplace: no sale");
 
+        tokensLocked -= amount;
         (bool success, ) = payable(caller).call{value: amount}("");
         require(success, "Marketplace: failed sending ETH");
 
@@ -119,9 +127,10 @@ contract Marketplace is ERC721Enumerable, Ownable {
      * @notice Allows contract owner to withdraw any excess funds in contract
      */
     function withdrawExcessFunds() external onlyOwner {
-        require(excessTokens > 0, "Marketplace: not required");
+        uint256 amount = address(this).balance - tokensLocked;
+        require(amount > 0, "Marketplace: not required");
 
-        (bool success, ) = payable(Ownable.owner()).call{value: excessTokens}("");
+        (bool success, ) = payable(Ownable.owner()).call{value: amount}("");
         require(success, "Marketplace: failed sending ETH");
     }
 
@@ -187,5 +196,14 @@ contract Marketplace is ERC721Enumerable, Ownable {
         uint256 oldPrice = tokenPrice[tokenId];
         tokenPrice[tokenId] = newPrice;
         emit PriceUpdate(tokenId, oldPrice, newPrice);
+    }
+
+    /**
+     * @notice Allows contract owner to update the fees applicable on token sale
+     * @param newSaleFees new sale fees in percentage (can only be set to a maximum of 33% of token price)
+     */
+    function setSaleFees(uint256 newSaleFees) external onlyOwner {
+        require(newSaleFees <= SALE_FEES_BPS / 3, "Marketplace: already set");
+        saleFees = newSaleFees;
     }
 }
