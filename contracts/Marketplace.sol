@@ -6,8 +6,11 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Marketplace is ERC721Enumerable, Ownable {
-    /// @notice Total amount that the users have earned from sale
-    uint256 public totalSalesValue;
+    /// @notice Keeps track of total number of token minted
+    uint256 public tokensMinted;
+
+    /// @dev Tracks any excess tokens deposited by users
+    uint256 private excessTokens;
 
     /// @dev Used for overriding
     string private baseURI;
@@ -81,7 +84,8 @@ contract Marketplace is ERC721Enumerable, Ownable {
      */
     function purchase(uint256 tokenId) external payable {
         uint256 price = tokenPrice[tokenId];
-        require(msg.value >= price, "Marketplace: less value sent");
+        uint256 amountSent = msg.value;
+        require(amountSent >= price, "Marketplace: less value sent");
 
         address tokenOwner = ownerOf(tokenId);
         address newOwner = _msgSender();
@@ -89,7 +93,10 @@ contract Marketplace is ERC721Enumerable, Ownable {
         _transfer(tokenOwner, newOwner, tokenId);
         userEarnings[tokenOwner] += price;
         isOpenForSale[tokenId] = false;
-        totalSalesValue += price;
+
+        if (amountSent > price) {
+            excessTokens += amountSent - price;
+        }
 
         emit Purchase(tokenOwner, newOwner, tokenId, price);
     }
@@ -112,10 +119,9 @@ contract Marketplace is ERC721Enumerable, Ownable {
      * @notice Allows contract owner to withdraw any excess funds in contract
      */
     function withdrawExcessFunds() external onlyOwner {
-        uint256 excessFunds = address(this).balance - totalSalesValue;
-        require(excessFunds > 0, "Marketplace: not required");
+        require(excessTokens > 0, "Marketplace: not required");
 
-        (bool success, ) = payable(Ownable.owner()).call{value: excessFunds}("");
+        (bool success, ) = payable(Ownable.owner()).call{value: excessTokens}("");
         require(success, "Marketplace: failed sending ETH");
     }
 
@@ -132,7 +138,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
     ) external {
         require(bytes(tokenURI_).length != 0, "Marketplace: tokenURI_ is required");
         require(!uriExists[tokenURI_], "Marketplace: same data exists");
-        uint256 tokenId = totalSupply() + 1;
+        uint256 tokenId = tokensMinted + 1;
 
         uriExists[tokenURI_] = true;
         isOpenForSale[tokenId] = true;
