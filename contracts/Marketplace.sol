@@ -6,118 +6,180 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Marketplace is ERC721Enumerable, Ownable {
-    uint256 private excessFunds;
-    mapping(address => uint256[]) private __userTokens;
-    mapping(uint256 => string) private __tokenHashForId;
-    mapping(string => uint256) private __tokenIdForHash;
-    mapping(uint256 => uint256) private __tokenPrice;
-    mapping(address => uint256) private __totalSale;
-    mapping(uint256 => bool) private __isOpenForSale;
+    /// @notice Total amount that the users have earned from sale
+    uint256 public totalSalesValue;
 
-    constructor(string memory name_, string memory symbol_) ERC721(name_, symbol_) {}
+    /// @dev Used for overriding
+    string private baseURI;
 
-    function _transfer(
-        address _from,
-        address _to,
-        uint256 _tokenId
-    ) internal override {
-        address tokenOwner_ = ownerOf(_tokenId);
-        removeFromList(__userTokens[tokenOwner_], _tokenId);
-        __userTokens[_to].push(_tokenId);
+    /// @dev Keeps the track of individual token prices by their ids
+    mapping(uint256 => uint256) private tokenPrice;
 
-        super._transfer(_from, _to, _tokenId);
+    /// @dev Keeps the track of earnings for inidividual users which is not withdrawn yet
+    mapping(address => uint256) private userEarnings;
+
+    /// @dev Indicates whether a token is open for sale
+    mapping(uint256 => bool) private isOpenForSale;
+
+    /// @dev Keeps track of ipfs hash to avoid minting same data more than once
+    mapping(string => bool) private uriExists;
+
+    /// @dev Keeps track of tokenURIs
+    mapping(uint256 => string) private tokenURIs;
+
+    /// @dev On successful purchase
+    event Purchase(address indexed previousOwner, address indexed newOwner, uint256 tokenId, uint256 amount);
+
+    /// @dev On price update
+    event PriceUpdate(uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
+
+    /// @dev On withdrawl
+    event Withdraw(address indexed receiver, uint256 amount);
+
+    /// @dev On token availability status update
+    event StatusUpdate(uint256 indexed tokenId, bool status);
+
+    /**
+     * @param name contract name
+     * @param symbol contract symbol
+     * @param baseURI_ the base URI for all the tokens to follow, e.g. a web server path or some domain name
+     */
+    constructor(
+        string memory name,
+        string memory symbol,
+        string memory baseURI_
+    ) ERC721(name, symbol) {
+        require(bytes(baseURI_).length != 0, "Marketplace: BaseURI_ is required");
+        baseURI = baseURI_;
     }
 
-    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        return __tokenHashForId[_tokenId];
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI;
     }
 
-    function tokenId(string memory _tokenHash) public view returns (uint256) {
-        uint256 tokenId_ = __tokenIdForHash[_tokenHash];
-        _requireMinted(tokenId_);
-        return tokenId_;
+    /**
+     * @notice Reads the complete URI for a token
+     * @param tokenId id to get URI for
+     */
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireMinted(tokenId);
+        return string(abi.encodePacked(_baseURI(), "/", tokenURIs[tokenId]));
     }
 
-    function mint(
-        address _to,
-        string memory _ipfsHash,
-        uint256 _price
-    ) external {
-        require(__tokenIdForHash[_ipfsHash] == 0, "Marketplace: same hash data exists");
-        uint256 tokenId_ = totalSupply() + 1;
-
-        __tokenIdForHash[_ipfsHash] = tokenId_;
-        __tokenHashForId[tokenId_] = _ipfsHash;
-        __isOpenForSale[tokenId_] = true;
-        __tokenPrice[tokenId_] = _price;
-
-        __userTokens[_to].push(tokenId_);
-
-        super._mint(_to, tokenId_);
+    /**
+     * @notice Tells if a token is available for purchase or not
+     * @param tokenId id to check status for
+     */
+    function isTokenOnSale(uint256 tokenId) external view returns (bool status) {
+        _requireMinted(tokenId);
+        return isOpenForSale[tokenId];
     }
 
-    function burn(uint256 _tokenId) external {
-        _isApprovedOrOwner(_msgSender(), _tokenId);
-        _requireMinted(_tokenId);
-        delete __tokenIdForHash[__tokenHashForId[_tokenId]];
-        delete __tokenHashForId[_tokenId];
-        delete __tokenPrice[_tokenId];
-        address tokenOwner_ = ownerOf(_tokenId);
-        removeFromList(__userTokens[tokenOwner_], _tokenId);
-        super._burn(_tokenId);
+    /**
+     * @notice To be called by the buyer with an amount equal to the token price listed by its owner
+     * @param tokenId id of the token to purchase
+     */
+    function purchase(uint256 tokenId) external payable {
+        uint256 price = tokenPrice[tokenId];
+        require(msg.value >= price, "Marketplace: less value sent");
+
+        address tokenOwner = ownerOf(tokenId);
+        address newOwner = _msgSender();
+
+        _transfer(tokenOwner, newOwner, tokenId);
+        userEarnings[tokenOwner] += price;
+        isOpenForSale[tokenId] = false;
+        totalSalesValue += price;
+
+        emit Purchase(tokenOwner, newOwner, tokenId, price);
     }
 
-    function userTokens(address _user) external view returns (uint256[] memory) {
-        return __userTokens[_user];
+    /**
+     * @notice Allows token owners to withdraw their earnings from sales
+     */
+    function withdraw() external {
+        address caller = _msgSender();
+        uint256 amount = userEarnings[caller];
+        require(amount > 0, "Marketplace: no sale");
+
+        (bool success, ) = payable(caller).call{value: amount}("");
+        require(success, "Marketplace: failed sending ETH");
+
+        emit Withdraw(caller, amount);
     }
 
-    function updatePrice(uint256 _tokenId, uint256 _price) external {
-        require(_msgSender() == ownerOf(_tokenId), "Marketplace: not called by token owner");
-        __tokenPrice[_tokenId] = _price;
-    }
+    /**
+     * @notice Allows contract owner to withdraw any excess funds in contract
+     */
+    function withdrawExcessFunds() external onlyOwner {
+        uint256 excessFunds = address(this).balance - totalSalesValue;
+        require(excessFunds > 0, "Marketplace: not required");
 
-    function purchase(uint256 _tokenId) external payable {
-        uint256 tokenPrice_ = __tokenPrice[_tokenId];
-        require(msg.value >= tokenPrice_, "Marketplace: less value sent");
-        address tokenOwner_ = ownerOf(_tokenId);
-        _transfer(tokenOwner_, _msgSender(), _tokenId);
-        __totalSale[tokenOwner_] += tokenPrice_;
-        __isOpenForSale[_tokenId] = false;
-        if (msg.value > tokenPrice_) {
-            excessFunds += msg.value - tokenPrice_;
-        }
-    }
-
-    function withdraw(bool _withdrawUnused) external {
-        address caller_ = _msgSender();
-        bool calledByContractOwnerForUnusedFunds_ = (caller_ == owner()) && _withdrawUnused;
-        bool success;
-        require(calledByContractOwnerForUnusedFunds_ || __totalSale[caller_] > 0, "Marketplace: no sale");
-        if (calledByContractOwnerForUnusedFunds_) {
-            (success, ) = payable(owner()).call{value: excessFunds}("");
-        } else {
-            (success, ) = payable(_msgSender()).call{value: __totalSale[caller_]}("");
-        }
+        (bool success, ) = payable(Ownable.owner()).call{value: excessFunds}("");
         require(success, "Marketplace: failed sending ETH");
     }
 
-    function setTokenSaleStatus(uint256 _tokenId, bool _openForSale) external {
-        require(_msgSender() == ownerOf(_tokenId), "Marketplace: not called by token owner");
-        __isOpenForSale[_tokenId] = _openForSale;
+    /**
+     * @notice Mints a token to the {to} address provided
+     * @param to address to mint token to
+     * @param tokenURI_ unique path of the token, e.g. ipfsHash
+     * @param tokenPrice_ price at which the token is to be sold
+     */
+    function mint(
+        address to,
+        string memory tokenURI_,
+        uint256 tokenPrice_
+    ) external {
+        require(bytes(tokenURI_).length != 0, "Marketplace: tokenURI_ is required");
+        require(!uriExists[tokenURI_], "Marketplace: same data exists");
+        uint256 tokenId = totalSupply() + 1;
+
+        uriExists[tokenURI_] = true;
+        isOpenForSale[tokenId] = true;
+        tokenURIs[tokenId] = tokenURI_;
+        tokenPrice[tokenId] = tokenPrice_;
+
+        _safeMint(to, tokenId);
     }
 
-    function removeFromList(uint256[] storage list, uint256 element) private {
-        uint256[] memory cachedList_ = list;
-        uint256 cachedListLength_ = cachedList_.length;
-        uint256 index_;
-        while (index_ < cachedListLength_) {
-            if (list[index_] == element) {
-                break;
-            } else {
-                index_++;
-            }
-        }
-        list[index_] = list[cachedListLength_ - 1];
-        list.pop();
+    /**
+     * @notice Burns a token removing all of its details from contract
+     * @param tokenId id of the token to be burned
+     */
+    function burn(uint256 tokenId) external {
+        _isApprovedOrOwner(_msgSender(), tokenId);
+        uriExists[tokenURIs[tokenId]] = false;
+
+        delete tokenURIs[tokenId];
+        delete tokenPrice[tokenId];
+        delete isOpenForSale[tokenId];
+
+        _burn(tokenId);
+    }
+
+    /**
+     * @notice Allows token owner or someone with its approval to update token availability status
+     * @param tokenId id to chage status for
+     * @param status updated sale status
+     */
+    function setTokenSaleStatus(uint256 tokenId, bool status) external {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "Marketplace: not authorized");
+        require(isOpenForSale[tokenId] != status, "Marketplace: already set");
+
+        isOpenForSale[tokenId] = status;
+        emit StatusUpdate(tokenId, status);
+    }
+
+    /**
+     * @notice Allows token owner or someone with its approval to update token price
+     * @param tokenId id of the token to update price for
+     * @param newPrice updated price of the token
+     */
+    function setTokenPrice(uint256 tokenId, uint256 newPrice) external {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "Marketplace: not authorized");
+
+        uint256 oldPrice = tokenPrice[tokenId];
+        tokenPrice[tokenId] = newPrice;
+        emit PriceUpdate(tokenId, oldPrice, newPrice);
     }
 }
