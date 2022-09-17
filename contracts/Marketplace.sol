@@ -87,10 +87,27 @@ contract Marketplace is ERC721Enumerable, Ownable {
     }
 
     /**
+     * @notice Reads the price of a token
+     * @param tokenId id of the token to get price of
+     */
+    function priceOfToken(uint256 tokenId) external view returns (uint256) {
+        return tokenPrice[tokenId];
+    }
+
+    /**
+     * @notice Reads the total sale value for a seller
+     * @param seller address of the seller
+     */
+    function userEarning(address seller) external view returns (uint256) {
+        return userEarnings[seller];
+    }
+
+    /**
      * @notice To be called by the buyer with an amount equal to the token price listed by its owner
      * @param tokenId id of the token to purchase
      */
     function purchase(uint256 tokenId) external payable {
+        require(isOpenForSale[tokenId], "Marketplace: unavailable for sale");
         uint256 price = tokenPrice[tokenId];
         uint256 amountSent = msg.value;
         require(amountSent >= price, "Marketplace: less value sent");
@@ -103,9 +120,9 @@ contract Marketplace is ERC721Enumerable, Ownable {
 
         emit Purchase(tokenOwner, newOwner, tokenId, price);
 
-        uint256 userEarning = price - ((price * saleFees) / SALE_FEES_BPS);
-        userEarnings[tokenOwner] += userEarning;
-        tokensLocked += userEarning;
+        uint256 earningAfterFees = price - ((price * saleFees) / SALE_FEES_BPS);
+        userEarnings[tokenOwner] += earningAfterFees;
+        tokensLocked += earningAfterFees;
     }
 
     /**
@@ -147,7 +164,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
     ) external {
         require(bytes(tokenURI_).length != 0, "Marketplace: tokenURI_ is required");
         require(!uriExists[tokenURI_], "Marketplace: same data exists");
-        uint256 tokenId = tokensMinted + 1;
+        uint256 tokenId = ++tokensMinted;
 
         uriExists[tokenURI_] = true;
         isOpenForSale[tokenId] = true;
