@@ -24,6 +24,9 @@ contract Marketplace is ERC721Enumerable, Ownable {
     /// @dev Keeps the track of individual token prices by their ids
     mapping(uint256 => uint256) private tokenPrice;
 
+    /// @dev Keeps the count of tokens a user holds
+    mapping(address => uint256) private userTokens;
+
     /// @dev Keeps the track of earnings for inidividual users which is not withdrawn yet
     mapping(address => uint256) private userEarnings;
 
@@ -103,6 +106,14 @@ contract Marketplace is ERC721Enumerable, Ownable {
     }
 
     /**
+     * @notice Reads the count of tokens a user have
+     * @param user address of the user
+     */
+    function userTokenCount(address user) external view returns (uint256) {
+        return userTokens[user];
+    }
+
+    /**
      * @notice To be called by the buyer with an amount equal to the token price listed by its owner
      * @param tokenId id of the token to purchase
      */
@@ -123,6 +134,9 @@ contract Marketplace is ERC721Enumerable, Ownable {
         uint256 earningAfterFees = price - ((price * saleFees) / SALE_FEES_BPS);
         userEarnings[tokenOwner] += earningAfterFees;
         tokensLocked += earningAfterFees;
+
+        userTokens[tokenOwner] = userTokens[tokenOwner] - 1;
+        userTokens[newOwner] = userTokens[newOwner] + 1;
     }
 
     /**
@@ -170,6 +184,7 @@ contract Marketplace is ERC721Enumerable, Ownable {
         isOpenForSale[tokenId] = true;
         tokenURIs[tokenId] = tokenURI_;
         tokenPrice[tokenId] = tokenPrice_;
+        userTokens[to] = userTokens[to] + 1;
 
         _safeMint(to, tokenId);
     }
@@ -181,10 +196,12 @@ contract Marketplace is ERC721Enumerable, Ownable {
     function burn(uint256 tokenId) external {
         _isApprovedOrOwner(_msgSender(), tokenId);
         uriExists[tokenURIs[tokenId]] = false;
+        address tokenOwner = ownerOf(tokenId);
 
         delete tokenURIs[tokenId];
         delete tokenPrice[tokenId];
         delete isOpenForSale[tokenId];
+        userTokens[tokenOwner] = userTokens[tokenOwner] - 1;
 
         _burn(tokenId);
     }
